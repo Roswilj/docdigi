@@ -3,6 +3,7 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 
 # Configuración inicial de Boto3 S3
+s3_client = boto3.client('s3', region_name='us-east-1')
 s3_client = boto3.client('s3')
 bucket_name = 'docdigi'
 
