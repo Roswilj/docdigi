@@ -27,17 +27,17 @@ def convert_to_pdf_and_save(latest_file):
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
 
-    # Crea un objeto PdfFileWriter de PyPDF2
-    pdf_writer = PdfFileWriter()
+    # Crea un objeto PdfWriter de PyPDF2
+    pdf_writer = PdfWriter()
 
-    # Crea un objeto PdfFileReader a partir del contenido del archivo
-    pdf_reader = PdfFileReader(BytesIO(file_content.encode('utf-8')))
+    # Crea un objeto PdfReader a partir del contenido del archivo
+    pdf_reader = PdfReader(BytesIO(file_content.encode('utf-8')))
 
-    # Agrega las páginas del archivo al PdfFileWriter
-    for page in range(pdf_reader.getNumPages()):
-        pdf_writer.addPage(pdf_reader.getPage(page))
+    # Agrega las páginas del archivo al PdfWriter
+    for page in range(len(pdf_reader.pages)):
+        pdf_writer.add_page(pdf_reader.pages[page])
 
-    # Escribe el contenido del PdfFileWriter en el BytesIO
+    # Escribe el contenido del PdfWriter en el BytesIO
     pdf_writer.write(pdf_buffer)
 
     # Mueve el puntero al inicio del BytesIO
