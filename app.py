@@ -2,7 +2,7 @@ import streamlit as st
 import boto3
 from botocore.exceptions import NoCredentialsError
 from io import BytesIO
-from PyPDF2 import PdfFileWriter, PdfFileReader
+from PyPDF2 import PdfWriter, PdfReader
 
 # Inicialización del cliente de S3
 s3_client = boto3.client('s3', region_name='us-east-1')
