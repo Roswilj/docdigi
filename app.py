@@ -1,61 +1,80 @@
 import streamlit as st
 import boto3
 from botocore.exceptions import NoCredentialsError
+from io import BytesIO
+from PyPDF2 import PdfFileWriter, PdfFileReader
 
 # Inicialización del cliente de S3
 s3_client = boto3.client('s3', region_name='us-east-1')
 s3_client = boto3.client('s3')
 bucket_name = 'docdigi-1'
 
-def upload_file_to_s3(file):
-    try:
-        # Sube el archivo al bucket en la carpeta input-document
-        s3_client.upload_fileobj(file, bucket_name, f'input-document/{file.name}')
-        # Copia el archivo desde input-document a output dentro del mismo bucket
-        s3_client.copy_object(Bucket=bucket_name,
-                              CopySource={'Bucket': bucket_name, 'Key': f'input-document/{file.name}'},
-                              Key=f'output/{file.name}')
-        return True
-    except NoCredentialsError:
-        return False
+def get_latest_file_in_lang_pro():
+    # Obtiene el archivo más reciente en la carpeta lang_pro
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='lang_pro/')
+    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'lang_pro/']
+    if files:
+        latest_file = max(files, key=lambda x: s3_client.head_object(Bucket=bucket_name, Key=x)['LastModified'])
+        return latest_file
+    else:
+        return None
 
-def list_files_in_output():
-    # Obtiene una lista de los archivos en la carpeta output
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='output/')
-    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'output/']
-    return files
+def convert_to_pdf_and_save(latest_file):
+    # Descarga el archivo más reciente de lang_pro
+    file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
+    file_content = file_obj['Body'].read().decode('utf-8')
+
+    # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
+    pdf_buffer = BytesIO()
+
+    # Crea un objeto PdfFileWriter de PyPDF2
+    pdf_writer = PdfFileWriter()
+
+    # Crea un objeto PdfFileReader a partir del contenido del archivo
+    pdf_reader = PdfFileReader(BytesIO(file_content.encode('utf-8')))
+
+    # Agrega las páginas del archivo al PdfFileWriter
+    for page in range(pdf_reader.getNumPages()):
+        pdf_writer.addPage(pdf_reader.getPage(page))
+
+    # Escribe el contenido del PdfFileWriter en el BytesIO
+    pdf_writer.write(pdf_buffer)
+
+    # Mueve el puntero al inicio del BytesIO
+    pdf_buffer.seek(0)
+
+    # Genera el nombre del archivo de salida
+    output_file_key = 'final_doc/' + latest_file.split('/')[-1].split('.')[0] + '.pdf'
+
+    # Guarda el PDF en el bucket de S3 en la carpeta final_doc
+    s3_client.put_object(Bucket=bucket_name, Key=output_file_key, Body=pdf_buffer)
+
+    return output_file_key
 
 def generate_presigned_url(bucket_name, object_name, expiration=3600):
     """Genera una URL presignada para descargar archivos. Expira en 1 hora (3600 segundos) por defecto."""
     try:
-        response = s3_client.generate_presigned_url('get_object',
-                                                    Params={'Bucket': bucket_name,
-                                                            'Key': object_name},
-                                                    ExpiresIn=expiration)
+        response = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket_name, 'Key': object_name}, ExpiresIn=expiration)
     except Exception as e:
         print(e)
         return None
     return response
 
 # Título de la aplicación
-st.title('Cargador y Procesador de Documentos S3')
+st.title('Convertidor de Documentos a PDF')
 
-# Cargador de archivos
-uploaded_file = st.file_uploader("Elige un archivo para subir a S3")
-if uploaded_file is not None:
-    if upload_file_to_s3(uploaded_file):
-        st.success('Archivo cargado y procesado exitosamente.')
-    else:
-        st.error('Error al cargar el archivo. Asegúrate de que las credenciales y permisos son correctos.')
+# Obtiene el archivo más reciente de lang_pro
+latest_file = get_latest_file_in_lang_pro()
 
-# Listado de archivos procesados
-st.header('Archivos Procesados en S3')
-files = list_files_in_output()
-if files:
-    for file in files:
-        file_name = file.split('/')[-1]  # Extrae solo el nombre del archivo
-        # Genera un enlace presignado para la descarga
-        download_url = generate_presigned_url(bucket_name, file)
-        st.write(f"{file_name}: ", download_url)
+if latest_file:
+    # Convierte el archivo a PDF y lo guarda en final_doc
+    output_file_key = convert_to_pdf_and_save(latest_file)
+
+    # Genera un enlace presignado para la descarga
+    download_url = generate_presigned_url(bucket_name, output_file_key)
+
+    st.write(f"Archivo más reciente convertido a PDF:")
+    st.write(f"Nombre del archivo: {output_file_key.split('/')[-1]}")
+    st.write(f"Enlace de descarga: {download_url}")
 else:
-    st.write("No hay archivos procesados para mostrar.")
+    st.write("No se encontraron archivos en la carpeta lang_pro.")
