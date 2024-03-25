@@ -20,10 +20,10 @@ def upload_file_to_s3(file):
         return False
 
 
-def get_latest_file_in_lang_pro():
-    # Obtiene el archivo más reciente en la carpeta lang_pro
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='lang_pro/')
-    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'lang_pro/']
+def get_latest_file_in_final_doc():
+    # Obtiene el archivo más reciente en la carpeta final_doc
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='final_doc/')
+    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'final_doc/']
     if files:
         latest_file = max(files, key=lambda x: s3_client.head_object(Bucket=bucket_name, Key=x)['LastModified'])
         return latest_file
@@ -91,18 +91,15 @@ if uploaded_file is not None:
     else:
         st.error('Error al cargar el archivo. Asegúrate de que las credenciales y permisos son correctos.')
 
-# Obtiene el archivo más reciente de lang_pro
-latest_file = get_latest_file_in_lang_pro()
+# Obtiene el archivo más reciente de final_doc
+latest_file = get_latest_file_in_final_doc()
 
 if latest_file:
-    # Convierte el archivo a PDF y lo guarda en final_doc
-    output_file_key = convert_to_pdf_and_save(latest_file)
-
     # Genera un enlace presignado para la descarga
-    download_url = generate_presigned_url(bucket_name, output_file_key)
+    download_url = generate_presigned_url(bucket_name, latest_file)
 
     st.write(f"Archivo más reciente convertido a PDF:")
-    st.write(f"Nombre del archivo: {output_file_key.split('/')[-1]}")
+    st.write(f"Nombre del archivo: {latest_file.split('/')[-1]}")
     st.write(f"Enlace de descarga: {download_url}")
 else:
-    st.write("No se encontraron archivos en la carpeta lang_pro.")
+    st.write("No se encontraron archivos en la carpeta final_doc.")
