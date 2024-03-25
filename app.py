@@ -35,7 +35,7 @@ def get_latest_file_in_final_doc():
         return None
 
 
-def convert_to_pdf_and_save(latest_file, result):
+def convert_to_pdf_and_save(latest_file, result=None):
     # Descarga el archivo más reciente de lang_pro
     file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
     file_content = file_obj['Body'].read().decode('utf-8')
@@ -63,6 +63,10 @@ def convert_to_pdf_and_save(latest_file, result):
     # Agrega el título del documento
     elements.append(Paragraph('Resumen de Información', style_heading))
     elements.append(Spacer(1, 20))
+
+    # Si no se proporciona un resultado, se utiliza un diccionario vacío
+    if result is None:
+        result = {}
 
     # Itera sobre las secciones y los datos del resultado
     for section, data in result.items():
@@ -112,7 +116,7 @@ if uploaded_file is not None:
         st.success('Archivo cargado exitosamente.')
 
         # Convierte el archivo cargado a PDF y lo guarda en final_doc
-        output_file_key = convert_to_pdf_and_save(uploaded_file.name)
+        output_file_key = convert_to_pdf_and_save(uploaded_file.name, {})  # Se pasa un diccionario vacío como resultado
 
         # Genera un enlace presignado para la descarga
         download_url = generate_presigned_url(bucket_name, output_file_key)
