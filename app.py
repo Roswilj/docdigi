@@ -1,5 +1,6 @@
 import streamlit as st
 import boto3
+import re
 from botocore.exceptions import NoCredentialsError
 from io import BytesIO
 from reportlab.pdfgen import canvas
@@ -59,8 +60,10 @@ def convert_to_pdf_and_save(latest_file):
         data = {}
         for line in lines[1:]:
             if line.strip() != "":  # Verifica si la línea no está vacía
-                key, value = line.split('=', 1)
-                data[key] = value
+                match = re.match(r'(\w+)\s*:\s*(.+)', line)
+                if match:
+                    key, value = match.groups()
+                    data[key] = value
         result[section_name] = data
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
