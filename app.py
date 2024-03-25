@@ -18,11 +18,10 @@ bucket_name = 'docdigi-1'
 def upload_file_to_s3(file):
     try:
         # Sube el archivo al bucket en la carpeta input-document
-        key = f'input-document/{file.name}'
-        s3_client.upload_fileobj(file, bucket_name, key)
-        return key  # Se devuelve el nombre clave del archivo subido
+        s3_client.upload_fileobj(file, bucket_name, f'input-document/{file.name}')
+        return True
     except NoCredentialsError:
-        return None
+        return False
 
 
 def get_latest_file_in_final_doc():
@@ -39,14 +38,7 @@ def get_latest_file_in_final_doc():
 def convert_to_pdf_and_save(latest_file, result=None):
     # Descarga el archivo más reciente de lang_pro
     file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
-    file_bytes = file_obj['Body'].read()
-
-    # Intentar decodificar con UTF-8 y manejar la excepción UnicodeDecodeError
-    try:
-        file_content = file_bytes.decode('utf-8')
-    except UnicodeDecodeError:
-        # Si UTF-8 no funciona, intentar con otra codificación (p. ej., 'latin-1')
-        file_content = file_bytes.decode('latin-1')
+    file_content = file_obj['Body'].read().decode('utf-8')
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
@@ -120,12 +112,11 @@ st.title('Convertidor de Documentos a PDF')
 # Cargador de archivos
 uploaded_file = st.file_uploader("Elige un archivo para cargar y procesar")
 if uploaded_file is not None:
-    s3_key = upload_file_to_s3(uploaded_file)
-    if s3_key:
+    if upload_file_to_s3(uploaded_file):
         st.success('Archivo cargado exitosamente.')
 
         # Convierte el archivo cargado a PDF y lo guarda en final_doc
-        output_file_key = convert_to_pdf_and_save(s3_key, {})  # Se pasa la clave del archivo subido a S3
+        output_file_key = convert_to_pdf_and_save(uploaded_file.name, {})  # Se pasa un diccionario vacío como resultado
 
         # Genera un enlace presignado para la descarga
         download_url = generate_presigned_url(bucket_name, output_file_key)
