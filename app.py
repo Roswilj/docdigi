@@ -35,6 +35,15 @@ def get_latest_file_in_lang_pro():
     else:
         return None
 
+def get_latest_file_in_final_doc():
+    # Obtiene el archivo más reciente en la carpeta final_doc
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='final_doc/')
+    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'final_doc/']
+    if files:
+        latest_file = max(files, key=lambda x: s3_client.head_object(Bucket=bucket_name, Key=x)['LastModified'])
+        return latest_file
+    else:
+        return None
 
 def convert_to_pdf_and_save(latest_file):
     # Descarga el archivo más reciente de lang_pro
