@@ -4,6 +4,10 @@ from botocore.exceptions import NoCredentialsError
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
 # Inicialización del cliente de S3
 s3_client = boto3.client('s3', region_name='us-east-1')
@@ -31,37 +35,55 @@ def get_latest_file_in_final_doc():
         return None
 
 
-def convert_to_pdf_and_save(file_name):
-    # Descarga el archivo de la carpeta input-document
-    file_obj = s3_client.get_object(Bucket=bucket_name, Key=f'input-document/{file_name}')
-
-    try:
-        file_content = file_obj['Body'].read().decode('utf-8')
-    except UnicodeDecodeError:
-        file_content = file_obj['Body'].read().decode('latin-1')
+def convert_to_pdf_and_save(latest_file, result):
+    # Descarga el archivo más reciente de lang_pro
+    file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
+    file_content = file_obj['Body'].read().decode('utf-8')
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
 
-    # Crea un objeto canvas de ReportLab para generar el PDF
-    pdf_canvas = canvas.Canvas(pdf_buffer, pagesize=letter)
+    # Crea un objeto SimpleDocTemplate para generar el PDF
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
 
-    # Escribe el contenido del archivo en el PDF
-    text_lines = file_content.split('\n')
-    y = 750
-    for line in text_lines:
-        pdf_canvas.drawString(100, y, line)
-        y -= 20
+    # Obtiene los estilos predefinidos
+    styles = getSampleStyleSheet()
+    style_normal = styles['Normal']
+    style_heading = styles['Heading1']
 
-    # Finaliza el PDF
-    pdf_canvas.showPage()
-    pdf_canvas.save()
+    # Crea un estilo personalizado para los títulos de sección
+    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12, spaceAfter=12)
+
+    # Crea un estilo personalizado para los elementos de lista
+    style_list_item = ParagraphStyle(name='ListItem', parent=style_normal, leftIndent=20)
+
+    # Crea una lista para almacenar los elementos del PDF
+    elements = []
+
+    # Agrega el título del documento
+    elements.append(Paragraph('Resumen de Información', style_heading))
+    elements.append(Spacer(1, 20))
+
+    # Itera sobre las secciones y los datos del resultado
+    for section, data in result.items():
+        # Agrega el título de la sección
+        elements.append(Paragraph(section, style_section))
+
+        # Itera sobre los elementos de la sección
+        for key, value in data.items():
+            # Agrega el elemento como un elemento de lista
+            elements.append(Paragraph(f"- {key}: {value}", style_list_item))
+
+        elements.append(Spacer(1, 12))
+
+    # Construye el PDF con los elementos
+    doc.build(elements)
 
     # Mueve el puntero al inicio del BytesIO
     pdf_buffer.seek(0)
 
     # Genera el nombre del archivo de salida
-    output_file_key = 'final_doc/' + file_name.split('.')[0] + '.pdf'
+    output_file_key = 'final_doc/' + latest_file.split('/')[-1].split('.')[0] + '.pdf'
 
     # Guarda el PDF en el bucket de S3 en la carpeta final_doc
     s3_client.put_object(Bucket=bucket_name, Key=output_file_key, Body=pdf_buffer)
