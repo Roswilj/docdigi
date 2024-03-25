@@ -1,11 +1,9 @@
 import streamlit as st
 import boto3
-from io import BytesIO
 from botocore.exceptions import NoCredentialsError
-from PyPDF2 import PdfWriter, PdfReader
+from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-
 
 # Inicialización del cliente de S3
 s3_client = boto3.client('s3', region_name='us-east-1')
