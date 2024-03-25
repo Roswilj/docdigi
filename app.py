@@ -18,16 +18,17 @@ bucket_name = 'docdigi-1'
 def upload_file_to_s3(file):
     try:
         # Sube el archivo al bucket en la carpeta input-document
-        s3_client.upload_fileobj(file, bucket_name, f'input-document/{file.name}')
-        return True
+        key = f'input-document/{file.name}'
+        s3_client.upload_fileobj(file, bucket_name, key)
+        return key  # Se devuelve el nombre clave del archivo subido
     except NoCredentialsError:
-        return False
+        return None
 
 
-def get_latest_file_in_final_doc():
-    # Obtiene el archivo más reciente en la carpeta final_doc
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='final_doc/')
-    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'final_doc/']
+def get_latest_file_in_lang_pro():
+    # Obtiene el archivo más reciente en la carpeta lang_pro
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='lang_pro/')
+    files = [item['Key'] for item in response.get('Contents', []) if item['Key'] != 'lang_pro/']
     if files:
         latest_file = max(files, key=lambda x: s3_client.head_object(Bucket=bucket_name, Key=x)['LastModified'])
         return latest_file
@@ -35,10 +36,22 @@ def get_latest_file_in_final_doc():
         return None
 
 
-def convert_to_pdf_and_save(latest_file, result=None):
+def convert_to_pdf_and_save(latest_file):
     # Descarga el archivo más reciente de lang_pro
     file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
     file_content = file_obj['Body'].read().decode('utf-8')
+
+    # Parsear el contenido del archivo para obtener la información
+    result = {}
+    sections = file_content.split('\n\n')
+    for section in sections:
+        lines = section.split('\n')
+        section_name = lines[0]
+        data = {}
+        for line in lines[1:]:
+            key, value = line.split(': ', 1)
+            data[key] = value
+        result[section_name] = data
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
@@ -63,10 +76,6 @@ def convert_to_pdf_and_save(latest_file, result=None):
     # Agrega el título del documento
     elements.append(Paragraph('Resumen de Información', style_heading))
     elements.append(Spacer(1, 20))
-
-    # Si no se proporciona un resultado, se utiliza un diccionario vacío
-    if result is None:
-        result = {}
 
     # Itera sobre las secciones y los datos del resultado
     for section, data in result.items():
@@ -112,18 +121,25 @@ st.title('Convertidor de Documentos a PDF')
 # Cargador de archivos
 uploaded_file = st.file_uploader("Elige un archivo para cargar y procesar")
 if uploaded_file is not None:
-    if upload_file_to_s3(uploaded_file):
+    s3_key = upload_file_to_s3(uploaded_file)
+    if s3_key:
         st.success('Archivo cargado exitosamente.')
 
-        # Convierte el archivo cargado a PDF y lo guarda en final_doc
-        output_file_key = convert_to_pdf_and_save(uploaded_file.name, {})  # Se pasa un diccionario vacío como resultado
+        # Obtiene el archivo más reciente de lang_pro
+        latest_file = get_latest_file_in_lang_pro()
 
-        # Genera un enlace presignado para la descarga
-        download_url = generate_presigned_url(bucket_name, output_file_key)
+        if latest_file:
+            # Convierte el archivo cargado a PDF y lo guarda en final_doc
+            output_file_key = convert_to_pdf_and_save(latest_file)
 
-        st.write(f"Archivo convertido a PDF:")
-        st.write(f"Nombre del archivo: {output_file_key.split('/')[-1]}")
-        st.write(f"Enlace de descarga: {download_url}")
+            # Genera un enlace presignado para la descarga
+            download_url = generate_presigned_url(bucket_name, output_file_key)
+
+            st.write(f"Archivo convertido a PDF:")
+            st.write(f"Nombre del archivo: {output_file_key.split('/')[-1]}")
+            st.write(f"Enlace de descarga: {download_url}")
+        else:
+            st.warning('No se encontró un archivo en la carpeta lang_pro.')
     else:
         st.error('Error al cargar el archivo. Asegúrate de que las credenciales y permisos son correctos.')
 
