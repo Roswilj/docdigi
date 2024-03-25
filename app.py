@@ -58,7 +58,7 @@ def convert_to_pdf_and_save(latest_file):
         section_name = lines[0]
         data = {}
         for line in lines[1:]:
-            key, value = line.split(': ', 1)
+            key, value = line.split('=', 1)
             data[key] = value
         result[section_name] = data
 
