@@ -1,8 +1,11 @@
 import streamlit as st
 import boto3
-from botocore.exceptions import NoCredentialsError
 from io import BytesIO
+from botocore.exceptions import NoCredentialsError
 from PyPDF2 import PdfWriter, PdfReader
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
 
 # Inicialización del cliente de S3
 s3_client = boto3.client('s3', region_name='us-east-1')
@@ -27,18 +30,19 @@ def convert_to_pdf_and_save(latest_file):
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
 
-    # Crea un objeto PdfWriter de PyPDF2
-    pdf_writer = PdfWriter()
+    # Crea un objeto canvas de ReportLab para generar el PDF
+    pdf_canvas = canvas.Canvas(pdf_buffer, pagesize=letter)
 
-    # Crea un objeto PdfReader a partir del contenido del archivo
-    pdf_reader = PdfReader(BytesIO(file_content.encode('utf-8')))
+    # Escribe el contenido del archivo en el PDF
+    text_lines = file_content.split('\n')
+    y = 750
+    for line in text_lines:
+        pdf_canvas.drawString(100, y, line)
+        y -= 20
 
-    # Agrega las páginas del archivo al PdfWriter
-    for page in range(len(pdf_reader.pages)):
-        pdf_writer.add_page(pdf_reader.pages[page])
-
-    # Escribe el contenido del PdfWriter en el BytesIO
-    pdf_writer.write(pdf_buffer)
+    # Finaliza el PDF
+    pdf_canvas.showPage()
+    pdf_canvas.save()
 
     # Mueve el puntero al inicio del BytesIO
     pdf_buffer.seek(0)
