@@ -36,6 +36,7 @@ def get_latest_file_in_lang_pro():
     else:
         return None
 
+
 def get_latest_file_in_final_doc():
     # Obtiene el archivo más reciente en la carpeta final_doc
     response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='final_doc/')
@@ -45,6 +46,7 @@ def get_latest_file_in_final_doc():
         return latest_file
     else:
         return None
+
 
 def convert_to_pdf_and_save(latest_file):
     # Descarga el archivo más reciente de lang_pro
@@ -78,7 +80,8 @@ def convert_to_pdf_and_save(latest_file):
     style_heading = styles['Heading1']
 
     # Crea un estilo personalizado para los títulos de sección
-    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12, spaceAfter=12)
+    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12,
+                                   spaceAfter=12)
 
     # Crea un estilo personalizado para los elementos de lista
     style_list_item = ParagraphStyle(name='ListItem', parent=style_normal, leftIndent=20)
@@ -92,15 +95,18 @@ def convert_to_pdf_and_save(latest_file):
 
     # Itera sobre las secciones y los datos del resultado
     for section, data in result.items():
+        section_elements = []  # Lista para almacenar los elementos de la sección
+
         # Agrega el título de la sección
-        elements.append(Paragraph(section, style_section))
+        section_elements.append(Paragraph(section, style_section))
 
         # Itera sobre los elementos de la sección
         for key, value in data.items():
             # Agrega el elemento como un elemento de lista
-            elements.append(Paragraph(f"- {key}: {value}", style_list_item))
+            section_elements.append(Paragraph(f"- {key}: {value}", style_list_item))
 
-        elements.append(Spacer(1, 12))
+        section_elements.append(Spacer(1, 12))  # Agrega un espaciador después de cada sección
+        elements.extend(section_elements)  # Agrega los elementos de la sección a la lista principal
 
     # Construye el PDF con los elementos
     doc.build(elements)
