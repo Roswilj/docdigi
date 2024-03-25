@@ -10,13 +10,15 @@ s3_client = boto3.client('s3', region_name='us-east-1')
 s3_client = boto3.client('s3')
 bucket_name = 'docdigi-1'
 
+
 def upload_file_to_s3(file):
     try:
-        # Sube el archivo al bucket en la carpeta lang_pro
-        s3_client.upload_fileobj(file, bucket_name, f'lang_pro/{file.name}')
+        # Sube el archivo al bucket en la carpeta input-document
+        s3_client.upload_fileobj(file, bucket_name, f'input-document/{file.name}')
         return True
     except NoCredentialsError:
         return False
+
 
 def get_latest_file_in_lang_pro():
     # Obtiene el archivo más reciente en la carpeta lang_pro
@@ -28,10 +30,15 @@ def get_latest_file_in_lang_pro():
     else:
         return None
 
+
 def convert_to_pdf_and_save(latest_file):
     # Descarga el archivo más reciente de lang_pro
     file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
-    file_content = file_obj['Body'].read().decode('utf-8')
+
+    try:
+        file_content = file_obj['Body'].read().decode('utf-8')
+    except UnicodeDecodeError:
+        file_content = file_obj['Body'].read().decode('latin-1')
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
     pdf_buffer = BytesIO()
@@ -61,14 +68,17 @@ def convert_to_pdf_and_save(latest_file):
 
     return output_file_key
 
+
 def generate_presigned_url(bucket_name, object_name, expiration=3600):
     """Genera una URL presignada para descargar archivos. Expira en 1 hora (3600 segundos) por defecto."""
     try:
-        response = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket_name, 'Key': object_name}, ExpiresIn=expiration)
+        response = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket_name, 'Key': object_name},
+                                                    ExpiresIn=expiration)
     except Exception as e:
         print(e)
         return None
     return response
+
 
 # Título de la aplicación
 st.title('Convertidor de Documentos a PDF')
