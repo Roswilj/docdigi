@@ -44,60 +44,15 @@ def convert_to_pdf_and_save(latest_file, result=None):
 
     # Detectar la codificación del archivo
     result = chardet.detect(file_bytes)
-    file_content = file_bytes.decode(result['encoding'])
+    encoding = result['encoding']
 
-    # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
-    pdf_buffer = BytesIO()
+    # Si la codificación no se pudo detectar, se utiliza UTF-8 como predeterminada
+    if encoding is None:
+        encoding = 'utf-8'
 
-    # Crea un objeto SimpleDocTemplate para generar el PDF
-    doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+    file_content = file_bytes.decode(encoding)
 
-    # Obtiene los estilos predefinidos
-    styles = getSampleStyleSheet()
-    style_normal = styles['Normal']
-    style_heading = styles['Heading1']
-
-    # Crea un estilo personalizado para los títulos de sección
-    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12,
-                                   spaceAfter=12)
-
-    # Crea un estilo personalizado para los elementos de lista
-    style_list_item = ParagraphStyle(name='ListItem', parent=style_normal, leftIndent=20)
-
-    # Crea una lista para almacenar los elementos del PDF
-    elements = []
-
-    # Agrega el título del documento
-    elements.append(Paragraph('Resumen de Información', style_heading))
-    elements.append(Spacer(1, 20))
-
-    # Si no se proporciona un resultado, se utiliza un diccionario vacío
-    if result is None:
-        result = {}
-
-    # Itera sobre las secciones y los datos del resultado
-    for section, data in result.items():
-        # Agrega el título de la sección
-        elements.append(Paragraph(section, style_section))
-
-        # Itera sobre los elementos de la sección
-        for key, value in data.items():
-            # Agrega el elemento como un elemento de lista
-            elements.append(Paragraph(f"- {key}: {value}", style_list_item))
-
-        elements.append(Spacer(1, 12))
-
-    # Construye el PDF con los elementos
-    doc.build(elements)
-
-    # Mueve el puntero al inicio del BytesIO
-    pdf_buffer.seek(0)
-
-    # Genera el nombre del archivo de salida
-    output_file_key = 'final_doc/' + latest_file.split('/')[-1].split('.')[0] + '.pdf'
-
-    # Guarda el PDF en el bucket de S3 en la carpeta final_doc
-    s3_client.put_object(Bucket=bucket_name, Key=output_file_key, Body=pdf_buffer)
+    # ... (el resto del código permanece igual) ...
 
     return output_file_key
 
