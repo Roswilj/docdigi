@@ -31,9 +31,9 @@ def get_latest_file_in_final_doc():
         return None
 
 
-def convert_to_pdf_and_save(latest_file):
-    # Descarga el archivo más reciente de lang_pro
-    file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
+def convert_to_pdf_and_save(file_name):
+    # Descarga el archivo de la carpeta input-document
+    file_obj = s3_client.get_object(Bucket=bucket_name, Key=f'input-document/{file_name}')
 
     try:
         file_content = file_obj['Body'].read().decode('utf-8')
@@ -61,7 +61,7 @@ def convert_to_pdf_and_save(latest_file):
     pdf_buffer.seek(0)
 
     # Genera el nombre del archivo de salida
-    output_file_key = 'final_doc/' + latest_file.split('/')[-1].split('.')[0] + '.pdf'
+    output_file_key = 'final_doc/' + file_name.split('.')[0] + '.pdf'
 
     # Guarda el PDF en el bucket de S3 en la carpeta final_doc
     s3_client.put_object(Bucket=bucket_name, Key=output_file_key, Body=pdf_buffer)
@@ -88,6 +88,16 @@ uploaded_file = st.file_uploader("Elige un archivo para cargar y procesar")
 if uploaded_file is not None:
     if upload_file_to_s3(uploaded_file):
         st.success('Archivo cargado exitosamente.')
+
+        # Convierte el archivo cargado a PDF y lo guarda en final_doc
+        output_file_key = convert_to_pdf_and_save(uploaded_file.name)
+
+        # Genera un enlace presignado para la descarga
+        download_url = generate_presigned_url(bucket_name, output_file_key)
+
+        st.write(f"Archivo convertido a PDF:")
+        st.write(f"Nombre del archivo: {output_file_key.split('/')[-1]}")
+        st.write(f"Enlace de descarga: {download_url}")
     else:
         st.error('Error al cargar el archivo. Asegúrate de que las credenciales y permisos son correctos.')
 
