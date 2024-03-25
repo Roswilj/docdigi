@@ -36,7 +36,6 @@ def get_latest_file_in_lang_pro():
     else:
         return None
 
-
 def get_latest_file_in_final_doc():
     # Obtiene el archivo más reciente en la carpeta final_doc
     response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='final_doc/')
@@ -47,7 +46,6 @@ def get_latest_file_in_final_doc():
     else:
         return None
 
-
 def convert_to_pdf_and_save(latest_file):
     # Descarga el archivo más reciente de lang_pro
     file_obj = s3_client.get_object(Bucket=bucket_name, Key=latest_file)
@@ -57,15 +55,16 @@ def convert_to_pdf_and_save(latest_file):
     result = {}
     sections = file_content.split('\n\n')
     for section in sections:
-        lines = section.split('\n')
-        section_name = lines[0]
-        data = {}
+        lines = section.strip().split('\n')
+        section_name = lines[0].strip('.\n ')
+        data = []
         for line in lines[1:]:
-            if line.strip() != "":  # Verifica si la línea no está vacía
-                match = re.match(r'(\w+)\s*:\s*(.+)', line)
-                if match:
-                    key, value = match.groups()
-                    data[key] = value
+            line = line.strip('- ')
+            if ': ' in line:
+                key, value = line.split(': ', 1)
+                data.append((key, value))
+            else:
+                data.append(line)
         result[section_name] = data
 
     # Crea un objeto BytesIO para almacenar el contenido del PDF en memoria
@@ -80,8 +79,7 @@ def convert_to_pdf_and_save(latest_file):
     style_heading = styles['Heading1']
 
     # Crea un estilo personalizado para los títulos de sección
-    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12,
-                                   spaceAfter=12)
+    style_section = ParagraphStyle(name='Section', parent=style_normal, fontName='Helvetica-Bold', fontSize=12, spaceAfter=12)
 
     # Crea un estilo personalizado para los elementos de lista
     style_list_item = ParagraphStyle(name='ListItem', parent=style_normal, leftIndent=20)
@@ -101,9 +99,12 @@ def convert_to_pdf_and_save(latest_file):
         section_elements.append(Paragraph(section, style_section))
 
         # Itera sobre los elementos de la sección
-        for key, value in data.items():
-            # Agrega el elemento como un elemento de lista
-            section_elements.append(Paragraph(f"- {key}: {value}", style_list_item))
+        for item in data:
+            if isinstance(item, tuple):
+                key, value = item
+                section_elements.append(Paragraph(f"- {key}: {value}", style_list_item))
+            else:
+                section_elements.append(Paragraph(f"- {item}", style_list_item))
 
         section_elements.append(Spacer(1, 12))  # Agrega un espaciador después de cada sección
         elements.extend(section_elements)  # Agrega los elementos de la sección a la lista principal
