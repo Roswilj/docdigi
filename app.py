@@ -4,8 +4,8 @@ import time
 from botocore.exceptions import NoCredentialsError
 
 # Inicialización del cliente de S3
-s3_client = boto3.client('s3', region_name='us-east-1')
-bucket_name = 'docdigi'
+s3_client = boto3.client('s3', region_name='ca-central-1')
+bucket_name = 'deloitte-docdigasset-687101064555-ca-centrl-1'
 
 def upload_file_to_s3(file):
     try:
