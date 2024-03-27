@@ -50,6 +50,6 @@ if uploaded_file is not None:
             download_url = generate_presigned_url(bucket_name, f'output/{file_name}')
             st.markdown(f"[Descargar archivo]({download_url})")
         else:
-            st.error('El archivo no se ha generado en el tiempo esperado. Por favor, intenta de nuevo más tarde.')
+            st.error('El archivo no se ha generado en el tiempo esperado. Por favor, intenta de nuevo.')
     else:
         st.error('Error al cargar el archivo. Asegúrate de que las credenciales y permisos son correctos.')
